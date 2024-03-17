@@ -1,13 +1,28 @@
 import sys
 import re
+import os
+import platform
 import math
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import pandas as pd
 import base64
 from io import BytesIO
 
-# 環境によってここのフォントを変える
-mpl.rcParams['font.family'] = 'Noto Sans JP'
+# 同種別の回答が1件であっても `その他` にしない設問をここに指定する
+NOT_OTHERS = ['所属部署', '勤続年数']
+
+
+# グラフの日本語フォントを指定
+def get_graph_font(os_name):
+    if os_name == 'Linux':
+        font_name = 'Noto Sans JP'
+    if os_name == 'Windows':
+        font_name = 'Meiryo'
+    # TODO: Macの場合どうなる？
+    # if os_name == 'Darwin':
+    #     font_name = ''
+    return font_name
 
 
 # グラフを描画してimgとして返す
@@ -37,6 +52,8 @@ def stylesheet():
         }
         li {
             padding-left: 8px;
+            padding-top: 2px;
+            padding-bottom: 2px;
         }
         th {
             padding: 10px;
@@ -66,8 +83,33 @@ def stylesheet():
     return css
 
 
+# 回答を dict 化する
+def convert_from_answer_to_dict(fname):
+    df = pd.read_excel(fname)
+
+    ans = {col: df[col].value_counts().to_dict() for col in df.columns}
+
+    for q, ans_dict in ans.items():
+        # ループ内で使う一時利用のdict
+        tmp = {}
+        for a in ans_dict:
+            line = str(a).split(", ")
+            if (len(line)) == 1:
+                continue
+            # 複数回答可能な設問は1カラムに " ,"区切りで複数あるため分解して集計
+            for v in line:
+                if v not in tmp:
+                    tmp.update({v: 1})
+                else:
+                    tmp[v] += 1
+            # カンマ区切りのものを集計しなおした形で回答を上書き
+            ans[q] = tmp
+
+    return ans
+
+
 # 回答のdictをhtml化する
-def gen_html(question, data):
+def gen_html(data):
     # タグの先頭を出力
     html_base = f"""
 <!DOCTYPE html>
@@ -76,9 +118,7 @@ def gen_html(question, data):
     print(html_base)
     q_cnt = 1
 
-    for q in question:
-        ans = data[q]
-
+    for q, ans in data.items():
         if q == 'タイムスタンプ':
             continue
         # 設問が自由記述型がどうかのフラグ
@@ -101,12 +141,12 @@ def gen_html(question, data):
 
         if not only_free_answer:
             for a, cnt in ans.items():
-                # 所属部署と勤続年数はその他があってもグラフに含む
-                if cnt > 1 or q in ['所属部署', '勤続年数']:
+                # 同一回答が1件より多いものまたは何件あってもその他にいれない設問
+                if cnt > 1 or q in NOT_OTHERS:
                     if a not in plot_ans:
                         # 円グラフプロット用の配列に追加
                         plot_ans[a] = cnt
-                    tables += f'<tr><td>{a}</td><td class=count>{cnt}</td>\
+                        tables += f'<tr><td>{a}</td><td class=count>{cnt}</td>\
                         <td class=count>{get_percentage(cnt, ans.values())}\
                         </td></tr>\n'
                 else:
@@ -158,35 +198,24 @@ def format_text(intext):
 
 
 # メイン処理
-if len(sys.argv) == 1:
-    sys.exit(0)
+def main():
+    if len(sys.argv) == 1:
+        sys.exit(0)
 
-# ファイルを読み込む
-cont = open(sys.argv[1], 'r').read().split("\n")
+    # ファイルを読み込む
+    fname = sys.argv[1]
 
-# ヘッダ行は質問として取得
-question = cont[0].split("\t")
+    if not os.path.exists(fname):
+        print(f'{fname} not found.')
+        sys.exit(1)
 
-# それ以降を回答として取得
-cont = cont[1:]
-ans = {}
+    # グラフのフォントを変える場合はここを書き換える
+    os_name = platform.system()
+    mpl.rcParams['font.family'] = get_graph_font(os_name=os_name)
 
-for line in cont:
-    for i, val in enumerate(line.split("\t")):
-        # 設問とわず回答が空であるものはスキップ
-        if val == '':
-            continue
+    data = convert_from_answer_to_dict(fname)
+    gen_html(data)
 
-        # 複数回答可能なもののために `, `で区切って集計
-        for v in val.split(", "):
-            # 設問そのものが配列にない場合
-            if question[i] not in ans:
-                ans[question[i]] = {v: 1}
-            else:
-                # 設問はあるけど同様の回答がない場合
-                if v not in ans[question[i]]:
-                    ans[question[i]].update({v: 1})
-                else:
-                    ans[question[i]][v] += 1
 
-gen_html(question, ans)
+if __name__ == '__main__':
+    main()
