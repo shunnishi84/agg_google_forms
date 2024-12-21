@@ -7,61 +7,38 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
 import base64
+import configparser
 from io import BytesIO
 
 NOT_OTHERS = ['所属部署', '勤続年数']
+CSS_FILE = './static/style.css'
+try:
+    with open(CSS_FILE, 'r') as f:
+        plain_css = f.read()
+except FileNotFoundError:
+    print('style.css not found.')
+    sys.exit(1)
+except Exception as e:
+    print(f'Error: {e}')
+    sys.exit(1)
 
-CSS = """
+CSS = f"""
 <style>
-    table {
-        padding: 20px;
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-    li {
-        padding-left: 8px;
-        padding-top: 2px;
-        padding-bottom: 2px;
-    }
-    th {
-        padding: 10px;
-    }
-    th, td {
-        padding: 8px;
-        text-align: left;
-        border-left: 2px solid #ddd; /* 左側に縦のボーダーを追加 */
-    }
-    .count {
-        text-align: right;
-    }
-    th:first-child, td:first-child {
-        border-left: none; /* 最初のセルの左側のボーダーを削除 */
-    }
-    thead tr {
-        background-color: #333;
-        color: white;
-    }
-    tbody tr:nth-child(odd) {
-        background-color: #f2f2f2;
-    }
-    tbody tr:nth-child(even) {
-        background-color: #ddd;
-    }
+{plain_css}
 </style>
 """
 
 
 def get_graph_font():
     """OSに応じたグラフの日本語フォントを返す。"""
+    FONTS = './static/fonts.ini'
+    config = configparser.ConfigParser()
+    config.read(FONTS)
     os_name = platform.system()
-    if os_name == 'Linux':
-        return 'Noto Sans JP'
-    elif os_name == 'Windows':
-        return 'Meiryo'
-    elif os_name == 'Darwin':
-        return 'Hiragino Sans'
-    else:
-        return 'Arial'
+
+    config_dict  = {section: dict(config.items(section)) for section in config.sections()}
+
+    return config_dict[os_name]['font']
 
 
 def plot_to_base64(labels, sizes):
@@ -72,7 +49,9 @@ def plot_to_base64(labels, sizes):
     png_image = BytesIO()
     plt.savefig(png_image, format='png', bbox_inches='tight', dpi=100)
     plt.clf()
+    plt.close()
     encoded = base64.b64encode(png_image.getvalue()).decode('utf-8')
+
     return f'<img src="data:image/png;base64,{encoded}">'
 
 
