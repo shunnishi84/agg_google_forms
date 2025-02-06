@@ -8,6 +8,8 @@ import matplotlib as mpl
 import pandas as pd
 import base64
 import configparser
+import japanize_matplotlib
+
 from io import BytesIO
 
 NOT_OTHERS = ['所属部署', '勤続年数']
@@ -44,6 +46,7 @@ def get_graph_font():
 def plot_to_base64(labels, sizes):
     """グラフを描画してbase64エンコードされたimgタグを返す。"""
     plt.figure(figsize=(6, 6))
+    japanize_matplotlib.japanize()
     plt.pie(sizes, autopct='%1.1f%%', shadow=True, startangle=90)
     plt.legend(loc="center left", bbox_to_anchor=(1, 0.5), labels=labels)
     png_image = BytesIO()
