@@ -39,3 +39,7 @@ Thumbs.db
 
 # Output files
 *.html
+
+# Sample/test files
+*.xlsx
+*.xls

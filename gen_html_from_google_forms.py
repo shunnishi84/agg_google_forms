@@ -18,7 +18,13 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
 import base64
-import japanize_matplotlib
+
+# japanize_matplotlibのインポート（オプション）
+try:
+    import japanize_matplotlib
+    JAPANIZE_AVAILABLE = True
+except ImportError:
+    JAPANIZE_AVAILABLE = False
 
 
 # 定数
@@ -151,7 +157,10 @@ class ChartGenerator:
             base64エンコードされた画像を含むimgタグ
         """
         plt.figure(figsize=Constants.FIGURE_SIZE)
-        japanize_matplotlib.japanize()
+
+        # japanize_matplotlibが利用可能な場合のみ使用
+        if JAPANIZE_AVAILABLE:
+            japanize_matplotlib.japanize()
 
         plt.pie(sizes, autopct='%1.1f%%', shadow=True, startangle=90)
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5), labels=labels)
