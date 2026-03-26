@@ -32,7 +32,10 @@ class TestParseTime:
         assert RecordParser().parse_time("10:30:15") == 10 * 3600 + 30 * 60 + 15
 
     def test_max_time(self):
-        assert RecordParser().parse_time("23:59:59") == 23 * 3600 + 59 * 60 + 59
+        assert RecordParser().parse_time("31:59:59") == 31 * 3600 + 59 * 60 + 59
+
+    def test_late_night_time(self):
+        assert RecordParser().parse_time("25:30:00") == 25 * 3600 + 30 * 60
 
     def test_invalid_format_raises(self):
         with pytest.raises(InvalidInputError):
@@ -40,7 +43,7 @@ class TestParseTime:
 
     def test_invalid_hour_raises(self):
         with pytest.raises(InvalidInputError):
-            RecordParser().parse_time("25:00:00")
+            RecordParser().parse_time("32:00:00")
 
     def test_invalid_minute_raises(self):
         with pytest.raises(InvalidInputError):
@@ -566,6 +569,23 @@ class TestServiceNormal:
         # 室料: 100 + 200 + 100 = 400
         # ドリンク: 3 × 300 = 900
         assert result == CalculationResult(code=0, price=1300)
+
+    def test_late_night_free_refills(self):
+        """深夜営業(24時超え)のソフトドリンク飲み放題"""
+        text = "\n".join([
+            "09:48:42 header free_refills",
+            "12:27:05 enter 6",
+            "12:32:19 drink alcohol 5978 72",
+            "12:43:56 enter 4",
+            "14:20:47 food 8304 20",
+            "15:26:08 drink soft_drink 3621 11",
+            "16:48:38 food 8411 19",
+            "18:35:37 enter 3",
+            "24:04:39 drink soft_drink 5176 33",
+            "25:32:14 footer",
+        ])
+        result = make_service().calculate(text)
+        assert result == CalculationResult(code=0, price=868305)
 
 
 class TestServiceOneDrinkError:

@@ -134,7 +134,7 @@ class RecordParser:
         if not match:
             raise InvalidInputError(f"invalid time format: {time_str}")
         h, m, s = int(match.group(1)), int(match.group(2)), int(match.group(3))
-        if h > 23 or m > 59 or s > 59:
+        if h > 31 or m > 59 or s > 59:
             raise InvalidInputError(f"invalid time value: {time_str}")
         return h * 3600 + m * 60 + s
 
@@ -460,7 +460,7 @@ def main():
     )
     input_text = sys.stdin.read()
     result = service.calculate(input_text)
-    print(json.dumps(result.to_dict(), ensure_ascii=False))
+    print(json.dumps(result.to_dict(), ensure_ascii=False, separators=(",", ":")))
 
 
 if __name__ == "__main__":
