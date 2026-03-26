@@ -43,8 +43,9 @@ class TerminalOperationError(KaraokeError):
 
 class OneDrinkError(KaraokeError):
     """ワンドリンクエラー (code: 1)"""
-    def __init__(self, drink_count: int, message: str = ""):
+    def __init__(self, drink_count: int, price: int, message: str = ""):
         self.drink_count = drink_count
+        self.price = price
         super().__init__(code=1, message=message)
 
 
@@ -283,7 +284,7 @@ class PricingPlan(ABC):
         """ドリンク1レコード分の料金を返す"""
 
     @abstractmethod
-    def validate_drink_order(self, total_entered: int, total_drink_count: int) -> None:
+    def validate_drink_order(self, total_entered: int, total_drink_count: int, total_price: int) -> None:
         """ドリンク注文数の妥当性を検証する"""
 
     def _is_nighttime(self, time_seconds: int) -> bool:
@@ -300,10 +301,11 @@ class OneDrinkPlan(PricingPlan):
     def calculate_drink_charge(self, record: DrinkRecord) -> int:
         return record.unit_price * record.quantity
 
-    def validate_drink_order(self, total_entered: int, total_drink_count: int) -> None:
+    def validate_drink_order(self, total_entered: int, total_drink_count: int, total_price: int) -> None:
         if total_drink_count < total_entered:
             raise OneDrinkError(
                 drink_count=total_drink_count,
+                price=total_price,
                 message="drink count is less than entered count",
             )
 
@@ -320,7 +322,7 @@ class FreeRefillsPlan(PricingPlan):
             return 0
         return record.unit_price * record.quantity
 
-    def validate_drink_order(self, total_entered: int, total_drink_count: int) -> None:
+    def validate_drink_order(self, total_entered: int, total_drink_count: int, total_price: int) -> None:
         pass
 
 
@@ -334,7 +336,7 @@ class AlcoholFreeRefillsPlan(PricingPlan):
     def calculate_drink_charge(self, record: DrinkRecord) -> int:
         return 0
 
-    def validate_drink_order(self, total_entered: int, total_drink_count: int) -> None:
+    def validate_drink_order(self, total_entered: int, total_drink_count: int, total_price: int) -> None:
         pass
 
 
@@ -393,7 +395,7 @@ class KaraokeService:
         try:
             return self._do_calculate(input_text)
         except OneDrinkError as e:
-            return CalculationResult(code=e.code, drink=e.drink_count)
+            return CalculationResult(code=e.code, price=e.price, drink=e.drink_count)
         except KaraokeError as e:
             return CalculationResult(code=e.code)
 
@@ -442,7 +444,7 @@ class KaraokeService:
             enter_time, count = entry[0], entry[1]
             total_price += room_calc.calculate_per_person(enter_time, footer.time_seconds) * count
 
-        plan.validate_drink_order(total_entered, total_drink_count)
+        plan.validate_drink_order(total_entered, total_drink_count, total_price)
 
         return CalculationResult(code=0, price=total_price)
 

@@ -334,12 +334,13 @@ class TestOneDrinkPlan:
         assert plan.calculate_drink_charge(record) == 600
 
     def test_validate_drink_order_ok(self):
-        OneDrinkPlan().validate_drink_order(3, 3)
+        OneDrinkPlan().validate_drink_order(3, 3, 1000)
 
     def test_validate_drink_order_fail(self):
         with pytest.raises(OneDrinkError) as exc_info:
-            OneDrinkPlan().validate_drink_order(3, 2)
+            OneDrinkPlan().validate_drink_order(3, 2, 1500)
         assert exc_info.value.drink_count == 2
+        assert exc_info.value.price == 1500
 
 
 class TestFreeRefillsPlan:
@@ -360,7 +361,7 @@ class TestFreeRefillsPlan:
         assert plan.calculate_drink_charge(record) == 1000
 
     def test_validate_drink_order_always_passes(self):
-        FreeRefillsPlan().validate_drink_order(3, 0)
+        FreeRefillsPlan().validate_drink_order(3, 0, 0)
 
 
 class TestAlcoholFreeRefillsPlan:
@@ -376,7 +377,7 @@ class TestAlcoholFreeRefillsPlan:
         assert plan.calculate_drink_charge(DrinkRecord(36000, DrinkType.SOFT_DRINK, 300, 2)) == 0
 
     def test_validate_drink_order_always_passes(self):
-        AlcoholFreeRefillsPlan().validate_drink_order(3, 0)
+        AlcoholFreeRefillsPlan().validate_drink_order(3, 0, 0)
 
 
 class TestCreatePricingPlan:
@@ -578,7 +579,8 @@ class TestServiceOneDrinkError:
             "10:30:00 footer",
         ])
         result = make_service().calculate(text)
-        assert result == CalculationResult(code=1, drink=1)
+        # 室料: 3×100=300, ドリンク: 1×300=300 → price=600
+        assert result == CalculationResult(code=1, price=600, drink=1)
 
     def test_drink_count_zero(self):
         """ワンドリンクエラー: ドリンク注文なし"""
@@ -589,7 +591,8 @@ class TestServiceOneDrinkError:
             "10:30:00 footer",
         ])
         result = make_service().calculate(text)
-        assert result == CalculationResult(code=1, drink=0)
+        # 室料: 2×100=200, ドリンク: 0 → price=200
+        assert result == CalculationResult(code=1, price=200, drink=0)
 
     def test_drink_count_equal_to_entered_is_ok(self):
         """ドリンク数 == 入室人数 → 正常"""
@@ -704,8 +707,8 @@ class TestCalculationResult:
         assert r.to_dict() == {"code": 0, "price": 1500}
 
     def test_one_drink_error_to_dict(self):
-        r = CalculationResult(code=1, drink=2)
-        assert r.to_dict() == {"code": 1, "drink": 2}
+        r = CalculationResult(code=1, price=500, drink=2)
+        assert r.to_dict() == {"code": 1, "price": 500, "drink": 2}
 
     def test_error_to_dict(self):
         r = CalculationResult(code=999)
@@ -724,7 +727,7 @@ class TestServiceDependencyInjection:
             def calculate_drink_charge(self, record: DrinkRecord) -> int:
                 return 0
 
-            def validate_drink_order(self, total_entered: int, total_drink_count: int) -> None:
+            def validate_drink_order(self, total_entered: int, total_drink_count: int, total_price: int) -> None:
                 pass
 
         service = KaraokeService(
